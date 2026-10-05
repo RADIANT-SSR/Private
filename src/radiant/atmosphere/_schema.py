@@ -64,7 +64,7 @@ BACKGROUND_AEROSOL_SCALE = ParameterDef(
         "rural climatology carries above the boundary layer, ~0.09 vertical "
         "optical depth in the 0.45–0.70 µm band). 1.0 = the calibrated MODTRAN "
         "rural-23 background; 0 = none (a pristine high-altitude site); "
-        "visibility_km never touches this term (CU-337)."
+        "visibility_km never touches this term."
     ),
     dtype=float,
     canonical_unit="",

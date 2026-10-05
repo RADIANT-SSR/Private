@@ -183,7 +183,7 @@ MAX_COUNT_RATE_HZ = ParameterDef(
 COUNTING_MODE = ParameterDef(
     name="readout.counting_mode",
     description=(
-        "Digital-counting accumulation mode (plan Phase 4, rulings D1/D6): "
+        "Digital-counting accumulation mode: "
         "'up' — unsigned accumulation, counter rollover clips; 'up_down' — "
         "signed modulo accumulator that increments during the scene phase "
         "and decrements during a reference phase (in-pixel background "
@@ -229,7 +229,7 @@ REFERENCE_RATE_E_PER_S = ParameterDef(
     name="readout.reference_rate_e_per_s",
     description=(
         "User-specified down-phase reference charge rate [e-/s] for "
-        "reference_source = 'user_level' (plan Phase 4). Default 0.0 means "
+        "reference_source = 'user_level'. Default 0.0 means "
         "'unset'; required (> 0) when 'user_level' is selected. Meaningful "
         "only under counting_mode = 'up_down'."
     ),

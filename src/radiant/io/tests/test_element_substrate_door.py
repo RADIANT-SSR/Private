@@ -255,3 +255,30 @@ class TestTheRemovedIndexKey:
         # The reassurance that matters to someone editing an old config: deleting the
         # key does not move their answer, because the key never moved it.
         assert "the result does not change" in message
+
+
+class TestTemperatureWindowReachesTheElement:
+    """The library's window is enforced where the element's temperature is known."""
+
+    @pytest.mark.level1
+    def test_a_cryogenic_germanium_lens_is_refused(self) -> None:
+        with pytest.raises(ElementConfigError) as excinfo:
+            parse_element_entries(
+                [_entry(substrate="germanium", temperature_K=80.0)], wavelength_um=_WL
+            )
+        assert "validity window" in str(excinfo.value)
+
+    @pytest.mark.level1
+    def test_an_in_window_lens_is_accepted(self) -> None:
+        element = parse_element_entries(
+            [_entry(substrate="germanium", temperature_K=290.0)], wavelength_um=_WL
+        )[0]
+        assert float(np.mean(element.emissivity.values)) > 0.0
+
+    @pytest.mark.level1
+    def test_an_element_at_zero_kelvin_is_not_refused(self) -> None:
+        """0 K is the "emits nothing" convention and the parser's own default."""
+        element = parse_element_entries(
+            [_entry(substrate="germanium", temperature_K=0.0)], wavelength_um=_WL
+        )[0]
+        assert element.cavity is not None

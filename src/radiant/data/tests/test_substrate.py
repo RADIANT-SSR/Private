@@ -135,3 +135,50 @@ class TestTemperatureWindow:
         caveat. The window is declared here; the consumer enforces it.
         """
         assert SubstrateLibrary().material("germanium").valid_temperature_K == (250.0, 330.0)
+
+
+class TestTemperatureValidity:
+    """A declared window is enforced, not decorative (CU-394 close-out).
+
+    alpha ships at one temperature because no published alpha(lambda, T) exists to build
+    an axis from. Outside germanium's declared 250-330 K the 293 K value is wrong by more
+    than the emission term it computes, so the library refuses rather than caveats.
+    """
+
+    @pytest.mark.level1
+    def test_inside_the_window_is_accepted(self) -> None:
+        SubstrateLibrary().material("germanium").check_temperature(290.0)
+
+    @pytest.mark.level1
+    @pytest.mark.parametrize("temperature_K", [70.0, 230.0, 350.0, 400.0])
+    def test_outside_the_window_is_refused(self, temperature_K: float) -> None:
+        with pytest.raises(SubstrateError) as excinfo:
+            SubstrateLibrary().material("germanium").check_temperature(temperature_K)
+        message = str(excinfo.value)
+        assert "validity window" in message
+        assert "250-330 K" in message
+
+    @pytest.mark.level1
+    def test_the_refusal_offers_the_custom_path(self) -> None:
+        """An analyst with a cryogenic measurement is not stuck — they state alpha."""
+        with pytest.raises(SubstrateError) as excinfo:
+            SubstrateLibrary().material("germanium").check_temperature(80.0)
+        assert "state alpha explicitly" in str(excinfo.value)
+
+    @pytest.mark.level1
+    def test_zero_is_never_checked(self) -> None:
+        """0 K is RADIANT's "emits nothing" convention, not a cryogenic measurement.
+
+        The emission term is zero whatever alpha says, so the window cannot matter —
+        and refusing it would reject every entry that omits a temperature, since the
+        parser's own default is 0.
+        """
+        SubstrateLibrary().material("germanium").check_temperature(0.0)
+
+    @pytest.mark.level1
+    def test_a_material_with_no_declared_window_is_not_checked(self) -> None:
+        """Most of the set has no published temperature dependence to bound."""
+        zns = SubstrateLibrary().material("zinc_selenide")
+        assert zns.valid_temperature_K is None
+        zns.check_temperature(70.0)
+        zns.check_temperature(400.0)

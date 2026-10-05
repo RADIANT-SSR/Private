@@ -88,7 +88,7 @@ NONLINEARITY_PCT = ParameterDef(
         "Per-pixel quadratic-nonlinearity dispersion (1-sigma, % of the "
         "full-scale-referenced quadratic coefficient). Sets the post-NUC "
         "residual FPN amplitude under 'two_point' — the parabolic residual "
-        "vanishing at both cal points (plan §3.2, D1)."
+        "vanishing at both cal points (the NUC-residual model's shape)."
     ),
     dtype=float,
     canonical_unit="",
@@ -166,7 +166,7 @@ SOURCE_TEMP_UNCERTAINTY_K = ParameterDef(
         "Calibration-source temperature uncertainty (1-sigma) [K]. "
         "Becomes a radiance-scale BIAS term via the band-integrated Planck "
         "derivative at the cal temperature — accuracy budget only, never "
-        "RSS'd into noise (plan §3.4/§3.5)."
+        "RSS'd into noise (a bias, not a random term)."
     ),
     dtype=float,
     canonical_unit="K",

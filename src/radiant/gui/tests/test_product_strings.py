@@ -1,10 +1,17 @@
 """CU-371: product strings carry no process language (audit F-52/F-53, II-003, II-015).
 
-Scope note (2026-10-04): ``_schema.py`` modules are excluded from the library scan.
-Their literals are ``ParameterDef`` descriptions, which reach the operator through the
-GUI and the generated parameter reference and so arguably belong under this rule — but
-that is a few hundred entries in a shipped manual, a scope decision for the owner rather
-than something to fold into a message sweep. Recorded in the findings log.
+Scope (owner ruling 2026-10-04, CU-395): ``_schema.py`` modules **are** scanned, and in
+them exactly one field is read — ``ParameterDef.description``. That string reaches the
+operator twice, as a GUI tooltip and through the generated ``parameter_reference.md``
+that ships inside the Technical Reference, so it is product copy by this rule's own
+test. Nothing else in a schema module is: ``default_justification`` surfaces nowhere,
+and the module comments that sit beside these definitions are developer-facing like
+every other comment.
+
+The finding that prompted this ruling reported "21 descriptions across 7 modules". The
+real number was **three**, because the measuring grep counted the module comments around
+the definitions as well as the definitions themselves. Worth stating because the
+over-count is what made this look like a scope decision rather than an afternoon.
 
 Operators read the GUI's notes, tooltips, refusals and warnings in every session, and
 the manuals quote them; a string that says "Gap 65", "ADR-0010 D-E", "v1-minimal
@@ -22,6 +29,8 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+
+import pytest
 
 import radiant
 
@@ -62,15 +71,14 @@ def _library_files() -> list[Path]:
     The original six-module list was the audit's sample, and a hand-kept list is exactly
     the kind that goes stale: CU-391's refusal in ``geometry/stage.py`` shipped "(CU-391)"
     in its ``why`` text unflagged, while the identical mistake in the listed
-    ``api/config_set.py`` failed immediately. The scan now reaches every module and
-    narrows instead on *which strings* it reads (see :func:`process_language_hits`).
+    ``api/config_set.py`` failed immediately. The scan now reaches every module —
+    ``_schema.py`` included since the 2026-10-04 ruling — and narrows instead on *which
+    strings* it reads (see :func:`process_language_hits`).
     """
     return sorted(
         p
         for p in _SRC.rglob("*.py")
-        if "/tests/" not in p.as_posix()
-        and not p.as_posix().startswith((_SRC / "gui").as_posix())
-        and p.name != "_schema.py"
+        if "/tests/" not in p.as_posix() and not p.as_posix().startswith((_SRC / "gui").as_posix())
     )
 
 
@@ -95,6 +103,24 @@ def _docstring_ids(tree: ast.AST) -> set[int]:
 #: whose other literals (log lines, dict keys, SpectralData ``source=`` labels) are
 #: developer-facing and may cite whatever they like.
 _USER_FACING_CALL = re.compile(r"(?:Error|Violation)$")
+
+
+def _schema_description_ids(tree: ast.AST) -> set[int]:
+    """Only ``description=`` values in a ``_schema.py``.
+
+    A schema module is almost entirely module-level assignment, so the general library
+    selector below would sweep in every string it contains — ``default_justification``,
+    which surfaces nowhere, and the prose around each definition. One field reaches the
+    operator (tooltip + generated parameter reference), so one field is scanned.
+    """
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.keyword) and node.arg == "description"):
+            continue
+        for sub in ast.walk(node.value):
+            if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                ids.add(id(sub))
+    return ids
 
 
 def _user_facing_string_ids(tree: ast.AST) -> set[int]:
@@ -125,7 +151,9 @@ def process_language_hits(path: Path) -> list[str]:
 
     In a **GUI** module every literal is read, as it always was. In a **library** module
     only the strings handed to a warning or an exception are — the rest never reach an
-    operator, and holding them to this rule would be noise, not a contract.
+    operator, and holding them to this rule would be noise, not a contract. In a
+    ``_schema.py`` only ``ParameterDef.description`` is read, for the same reason in the
+    other direction: it is the one field there that an operator sees.
     """
     source = path.read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -135,7 +163,12 @@ def process_language_hits(path: Path) -> list[str]:
     except ValueError:  # a path outside the package — the unit tests' synthetic modules
         rel = path.name
     is_gui = rel.startswith("gui/")
-    wanted = None if is_gui else _user_facing_string_ids(tree)
+    if is_gui:
+        wanted = None
+    elif path.name == "_schema.py":
+        wanted = _schema_description_ids(tree)
+    else:
+        wanted = _user_facing_string_ids(tree)
     physics_exempt = rel in _PHYSICS_RULE_MODULES
     hits: list[str] = []
     for node in ast.walk(tree):
@@ -225,3 +258,52 @@ def test_the_physics_rule_names_are_exempt_only_where_they_belong() -> None:
     # module is still caught.
     assert _PHYSICS_RULE_TOKENS.sub("", "fitted per Rule 07 (Rule 17 forbids it)")
     assert _TOKEN.search(_PHYSICS_RULE_TOKENS.sub("", "fitted per Rule 07 (Rule 17 forbids it)"))
+
+
+class TestSchemaDescriptionsAreProductCopy:
+    """CU-395, owner ruling 2026-10-04: a parameter description is read by an operator.
+
+    It reaches them twice — as a GUI tooltip and through the generated
+    ``parameter_reference.md`` bound into the Technical Reference — so it is held to the
+    same rule as a refusal or a warning.
+    """
+
+    def test_a_description_citing_a_cleanup_unit_is_caught(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        module = tmp_path / "_schema.py"
+        module.write_text(
+            "FOO = ParameterDef(\n"
+            "    name='x.y',\n"
+            "    description='Speed of the thing (CU-391).',\n"
+            ")\n",
+            encoding="utf-8",
+        )
+        hits = process_language_hits(module)
+        assert len(hits) == 1
+        assert "CU-391" in hits[0]
+
+    def test_other_schema_fields_are_not_scanned(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """``default_justification`` surfaces nowhere, so a citation there is fine.
+
+        This is the narrowing that makes the rule hold: without it the module-level
+        assignment branch would sweep in every string a schema file contains, and the
+        rule would be noise rather than a contract.
+        """
+        module = tmp_path / "_schema.py"
+        module.write_text(
+            "FOO = ParameterDef(\n"
+            "    name='x.y',\n"
+            "    description='Speed of the thing.',\n"
+            "    default_justification='Set to 0 by the ADR-0006 rule 2 convention.',\n"
+            ")\n",
+            encoding="utf-8",
+        )
+        assert process_language_hits(module) == []
+
+    def test_the_shipped_parameter_reference_is_clean(self) -> None:
+        """The artifact itself, not just its source — this is what readers get."""
+        reference = (
+            Path(__file__).resolve().parents[4] / "docs" / "guides" / "parameter_reference.md"
+        )
+        if not reference.is_file():  # pragma: no cover - a wheel-only checkout
+            pytest.skip("generated parameter reference not present")
+        assert not _TOKEN.search(reference.read_text(encoding="utf-8"))

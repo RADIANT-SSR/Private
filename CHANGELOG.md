@@ -20,6 +20,20 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **A spectral CSV may now carry a column-header row, and a corrupt one is refused
+  with an actionable message** (CU-397). `wavelength_um,value` as the first line — what
+  Excel, pandas and this repo's own substrate tables all write — crashed the element
+  coating loader with a bare `ValueError: could not convert string to float:
+  'wavelength_um'`, naming no file, no element and no remedy, and not deriving from
+  `RadiantError` so a caller catching that did not catch it. A single header row is now
+  skipped, a UTF-8 BOM (Excel's default) is tolerated, and any other unparseable row
+  raises an `ElementConfigError` naming the file, the line number, the element property
+  and the fix. **Results-affecting:** `NaN` and `inf` cells are now refused instead of
+  read as data — `float()` accepts both, so one `NaN` row in a coating file was
+  interpolated across the chain grid and produced 7 NaN reflectances and 7 NaN
+  emissivities out of 9 points with no error raised anywhere.
+
 ### Changed
 - **Results-affecting: the refractive cavity is now a first-order model — one
   interaction per surface** (CU-398). `T_sys`, `R_sys` and `eps_eff` were each divided

@@ -47,18 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError
-
-**Discovered**: Gap 142 substrate-library work, 2026-10-04, while verifying that each cavity surface accepts a coating from a file (owner requirement, same day).
-**Status**: **Open.**
-**File**: `src/radiant/io/element_config.py:86` (`_load_spectral_csv`).
-
-**Symptom**: a two-column CSV whose first line is a column header — `wavelength_um,value`, which is what Excel, pandas and every other export produces — reaches `float(row[0])` and raises a bare `ValueError: could not convert string to float: 'wavelength_um'` out of `parse_element_entries`. The reader skips `#`-comment lines and blank lines but has no notion of a header row. Reproduce: point any element's `reflectance`/`R1`/`T1`/`R2`/`T2` at such a file.
-
-**Why it still matters**: it is a Rule 15 violation on a user-facing input path — the message names no file, no element and no remedy, and it is a raw Python exception rather than a `RadiantError`, so a caller catching `RadiantError` does not catch it (Rule 15's whole contract). It is reached from the GUI's *CSV file…* button, so an operator hits it with the most ordinary file they could supply. Sharpened by the fact that the **substrate library's own CSVs use exactly that header format** (read by `csv.DictReader` in `data/substrate.py`), so the codebase now carries two CSV conventions in two readers and the one an operator is most likely to imitate is the one the element loader rejects.
-
-**Suggested fix**: (a) inline-fix-now — skip a leading non-numeric row, and convert any residual parse failure into an `ElementConfigError` naming the file, the line number and the element property. ~1 h, category B. Decide separately whether the two readers should converge on one convention.
-
 ### CU-394 — A datasheet-level refractive train cannot express warm-optics emission at all
 
 **Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-380 scenario re-authoring, 2026-10-03).
@@ -119,6 +107,19 @@ The study's open questions are the substrate set, whether α carries its tempera
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError — RESOLVED 2026-10-04 (commit trailer)
+
+**Discovered**: Gap 142 substrate-library work, 2026-10-04, while verifying that each cavity surface accepts a coating from a file.
+**Status**: **RESOLVED 2026-10-04** (commit trailer).
+
+**Delivered**: `_load_spectral_csv` skips a single leading column-header row, reads with `utf-8-sig` so Excel's default BOM no longer corrupts the first number, and converts every other parse failure into an `ElementConfigError` naming the file, the **line number**, the element property and the remedy. The header skip is deliberately narrow — only the first data-bearing row, and only when both leading cells read as *names* — so a non-numeric token further down is still the defect it is, verified by a test that puts a header-shaped row at line 4 and expects a refusal.
+
+**The more serious defect was found while fixing this one.** `float()` accepts `"NaN"` and `"inf"`, so a non-finite cell was never a parse failure at all — it was read as **data**. Measured: `3.0,0.97 / 4.0,NaN / 5.0,0.95` interpolated onto a 9-point grid gave **7 NaN reflectances and 7 NaN emissivities**, with no error anywhere. A NaN in the *wavelength* column was caught incidentally by `SpectralData`'s strictly-ascending check — which names neither the file nor the line — and a NaN in the *value* column was caught by nothing. The header row at least failed loudly; this failed silently, which is the Rule 17 case. Both now go through a `_finite()` guard at the io boundary, while the file and line are still known. Recorded in `Findings_Log.md` and struck in the same commit.
+
+**Why the two conventions existed**: `io/qe_csv.py` *requires* a header and already used `utf-8-sig`; `io/element_config.py` forbade one; `data/substrate.py` writes one. Converging the three readers was not attempted here — this fixes the crash and the silent NaN, and leaves the convention question alone.
+
+**Files**: `src/radiant/io/element_config.py` (`_load_spectral_csv`, new `_finite` and `_looks_like_header` helpers); `src/radiant/io/tests/test_spectral_csv_header.py` (13 tests).
 
 ### CU-398 — The cavity model sums an infinite internal-bounce series, which is a higher-order term in a first-order model — RESOLVED 2026-10-04 (commit trailer)
 

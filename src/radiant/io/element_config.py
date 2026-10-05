@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,55 @@ class ElementConfigError(RadiantError, ValueError):
     """
 
 
+def _finite_or_none(cell: str) -> float | None:
+    """Parse *cell* as a finite float, or ``None`` if it is neither (CU-397).
+
+    Returns a sentinel rather than raising, because the caller's next move depends on
+    *where* the bad cell is — the first data-bearing row may legitimately be a column
+    header — and an exception used for that branch would be control flow dressed as an
+    error, as well as a bare built-in raise the Rule 15 gate rejects.
+
+    ``nan`` and ``inf`` count as "not a number" here even though ``float()`` accepts
+    both. Before this guard they were read as **data**: one ``NaN`` row in a coating
+    file, interpolated onto the chain grid, produced seven NaN reflectances and seven
+    NaN emissivities out of nine points with no error raised anywhere. A NaN in the
+    *wavelength* column was caught incidentally downstream by SpectralData's ascending
+    check, naming neither the file nor the line; a NaN in the *value* column was caught
+    by nothing (Rule 17).
+    """
+    try:
+        value = float(cell)
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _looks_like_header(row: list[str]) -> bool:
+    """True when *row* reads as a column-header line rather than corrupt data.
+
+    Deliberately narrow. A header's cells are names — letters, underscores, maybe a
+    unit in brackets — so a cell that is merely *malformed* ("3..5", "NaN", "inf") must
+    not qualify, or a corrupt file would be silently truncated by one row instead of
+    refused. "NaN" and "inf" are the trap: they carry letters but ``float()`` accepts
+    them, so the letters test alone would wave through exactly the rows a physics input
+    must never absorb (Rule 17). Blank cells do not qualify either — an empty leading
+    field is a delimiter mistake, not a heading.
+    """
+    return all(_is_column_name(cell) for cell in row[:2])
+
+
+def _is_column_name(cell: str) -> bool:
+    """True when *cell* reads as a column name rather than a number or a blank."""
+    text = cell.strip()
+    if not text:
+        return False
+    try:
+        float(text)  # includes "nan", "inf", "-Infinity"
+    except ValueError:
+        return any(ch.isalpha() for ch in text)
+    return False
+
+
 def _load_spectral_csv(path: Path, name: str) -> SpectralData:
     """Load a two-column CSV (wavelength_um, value) into SpectralData."""
     # is_file(), not exists(): an empty or directory path must raise the actionable
@@ -76,15 +126,35 @@ def _load_spectral_csv(path: Path, name: str) -> SpectralData:
         )
     wavelengths: list[float] = []
     values: list[float] = []
-    with open(path, encoding="utf-8") as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if not row or row[0].startswith("#"):
+    # utf-8-sig, not utf-8: Excel writes a BOM by default, and a leading U+FEFF turns
+    # the first number into an unparseable token. The same reason ``io/qe_csv.py``
+    # uses it (CU-397).
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        for lineno, row in enumerate(csv.reader(f), start=1):
+            if not row or row[0].lstrip().startswith("#"):
                 continue
             if len(row) < 2:
                 continue
-            wavelengths.append(float(row[0]))
-            values.append(float(row[1]))
+            wavelength = _finite_or_none(row[0])
+            value = _finite_or_none(row[1])
+            if wavelength is None or value is None:
+                # A COLUMN-HEADER row is the overwhelmingly common case and is not an
+                # error: it is what Excel, pandas and this repo's own substrate tables
+                # all write. Skip exactly one, and only as the first data-bearing row,
+                # so a non-numeric token further down is still the defect it is.
+                if not wavelengths and _looks_like_header(row):
+                    continue
+                raise ElementConfigError(
+                    f"Spectral file '{path}' line {lineno}: expected two finite "
+                    f"numbers (wavelength_um, value) but found {row[0]!r}, {row[1]!r}. "
+                    f"This file supplies element property '{name}'. Use two numeric "
+                    "columns, with any commentary on lines starting with '#'; a single "
+                    "column-header row is accepted and skipped. 'NaN' and 'inf' are "
+                    "refused rather than interpolated — one of them spreads across the "
+                    "whole grid."
+                )
+            wavelengths.append(wavelength)
+            values.append(value)
     if len(wavelengths) < 2:
         raise ElementConfigError(
             f"Spectral file '{path}' must have at least 2 data points, got {len(wavelengths)}."

@@ -278,8 +278,12 @@ _INSPECT_SIDE_BY_SIDE_MIN = _INSPECT_FORM_MIN_WIDTH + _INSPECT_FIGURE_MIN_WIDTH
 #: Heights the stacked halves open at [px]. The form takes the larger share: the figure
 #: stays readable when it shrinks, a form cut to one visible row does not, and the form
 #: is the half being acted on. The splitter handle resizes both from there.
-_STACKED_FORM_HEIGHT = 360
+_STACKED_FORM_MIN = 120
+_STACKED_FORM_MAX = 380
 _STACKED_FIGURE_HEIGHT = 230
+
+#: Qt's own 'no maximum' sentinel, used to lift the stacked cap again.
+_UNBOUNDED_HEIGHT = 16777215
 
 # Gap 128 deleted per-element near-field geometry (``diameter_m`` /
 # ``distance_to_fpa_m``): an element has no near-field geometry of its own, because every
@@ -1914,6 +1918,7 @@ class OpticalElementEditor(QWidget):
             self._side_host.setMinimumWidth(_INSPECT_FORM_MIN_WIDTH)
             self._figure_side.setMinimumWidth(_INSPECT_FIGURE_MIN_WIDTH)
             self._side_host.setMinimumHeight(0)
+            self._side_host.setMaximumHeight(_UNBOUNDED_HEIGHT)
             self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
             # Seed in the figure's favour: a column of labelled fields reports a wide
             # size preference and gains nothing from the extra width; the figure does.
@@ -1926,9 +1931,20 @@ class OpticalElementEditor(QWidget):
             # at all — and the form is the half the operator is acting on. The card
             # scrolls if the window cannot hold both; that is the right trade, because
             # shrinking the form to fit is what made it unusable.
-            self._side_host.setMinimumHeight(_STACKED_FORM_HEIGHT)
+            # Sized to the form's own content, not to a fixed band. A mirror's
+            # Definition page is one field; giving it a cavity's height leaves a dead
+            # strip through the middle of the card, which is what the manual figure
+            # showed the first time this stacked.
+            # The FORM's hint, not the scroll host's: a QScrollArea reports an
+            # arbitrary one, which left the allocated band unchanged and the dead strip
+            # in place.
+            inner = getattr(self, "_side_widget", None)
+            wanted = inner.sizeHint().height() if inner is not None else _STACKED_FORM_MAX
+            form_h = max(_STACKED_FORM_MIN, min(wanted, _STACKED_FORM_MAX))
+            self._side_host.setMinimumHeight(_STACKED_FORM_MIN)
+            self._side_host.setMaximumHeight(form_h)
             self._detail_canvas.setMinimumHeight(_STACKED_FIGURE_HEIGHT)
-            split.setSizes([_STACKED_FORM_HEIGHT, _STACKED_FIGURE_HEIGHT])
+            split.setSizes([form_h, _STACKED_FIGURE_HEIGHT])
 
     def set_side_panel(self, widget: QWidget) -> None:
         """Mount *widget* to the LEFT of the coating figure, inside this card.
@@ -1938,6 +1954,7 @@ class OpticalElementEditor(QWidget):
         side by side — appended, the figure takes the full width above and pushes every
         field below the fold, which is exactly how it looked when it was first built.
         """
+        self._side_widget = widget
         layout = self._side_host.layout()
         if layout is not None:
             scroller = QScrollArea(self._side_host)

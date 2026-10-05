@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "radiant"
-version = "0.3.0"
+version = "0.4.0"
 description = "First-principles EO sensor performance modeling framework"
 requires-python = ">=3.11"
 dependencies = [
@@ -76,9 +76,13 @@ where = ["src"]
     # CU-349: the six mission templates ship in the wheel — the welcome screen
     # and `radiant template` discover them module-relative, never repo-relative.
     "templates/*.yaml",
-    # Gap 126: the worked examples (five configs + the OLI-2 study and its CSVs).
+    # Gap 126: the worked examples (six configs + the OLI-2 study and its CSVs).
     "examples/*.yaml",
     "examples/oli2/*.csv",
+    # The transmission-doors reference and its coating/absorption tables. A spectral
+    # path in an example config is resolved relative to the config, so the CSVs must
+    # be in the wheel beside it or the example loads only from a repo checkout.
+    "examples/transmission/*.csv",
 ]
 # Gap 131 Phase 5 (plan §9 / ruling Q1 + owner direction 2026-09-17). Both trees are
 # STAGED by scripts/build_release.py — created, packed, removed — and gitignored, so a

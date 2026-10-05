@@ -185,6 +185,11 @@ VOLUMES: dict[str, Volume] = {
             "guides/examples_gui.md",
             # Part B — driving RADIANT from scripts
             "guides/examples_scripting.md",
+            # The transmission-doors syntax reference. It sits with the "how you drive
+            # it" chapters rather than with the case studies because it is not a study:
+            # it answers "what shape does my config take", which is the question an
+            # analyst has before they have a result to interpret.
+            "guides/examples_transmission_doors.md",
             # Part C — tier-1 full-depth persona case studies, in plan §7 order:
             # three GUI-led (1.1, 2.1, 3.1), then the four script-led (4.1, 5.1,
             # 6.1, 7.1), then the closing GUI-led 10.2.

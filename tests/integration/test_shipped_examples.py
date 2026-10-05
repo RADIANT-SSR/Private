@@ -19,8 +19,17 @@ from radiant.api.mission_templates import discover_examples
 _EXAMPLES = discover_examples()
 
 
-def test_the_bundled_set_is_the_curated_six() -> None:
-    assert len(_EXAMPLES) == 6
+def test_the_bundled_set_is_the_curated_seven() -> None:
+    """Six mission snapshots plus one syntax reference.
+
+    ``transmission_doors`` is different in kind from the other six: it is not a
+    curated snapshot of a scenario but a deliberately unrealistic train that uses
+    every way of defining optical transmission at once, so an analyst can read the
+    syntax side by side and diff their own config against it. It meets the same bar
+    as the rest — it loads through its documented door and evaluates warning-clean.
+    """
+    assert len(_EXAMPLES) == 7
+    assert "transmission_doors" in {info.path.stem for info in _EXAMPLES}
 
 
 @pytest.mark.parametrize("info", _EXAMPLES, ids=lambda i: i.path.stem)

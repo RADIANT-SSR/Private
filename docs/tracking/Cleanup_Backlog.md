@@ -47,6 +47,20 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-400 — A cavity element mixing a scalar surface with a spectral-file surface cannot be loaded
+
+**Discovered**: authoring the shipped transmission-doors example, 2026-10-04 — the example exists precisely to exercise every way of supplying a coating, and this is the combination it died on.
+**Status**: **Open.**
+**File**: `src/radiant/io/element_config.py` (`validate_element_entry`'s fallback branch).
+
+**Symptom**: a REFRACTIVE cavity entry whose surface 1 is a spectral CSV and whose surface 2 is a scalar is refused at load with `cannot resample — target grid [0.4, 20.0] µm extends outside source range [3.0, 5.0] µm`. Nothing about the entry is wrong. Reproduce: any `optical_elements` entry with `R1: coatings/ar.csv` and `T2: 0.988`.
+
+**Cause**: structural validation parses first on the entry's **native** grid; a scalar has none, so the parse raises "wavelength_um is required" and the handler retries on `FALLBACK_GRID_UM`, which spans **0.4-20 µm** — wider than any real coating table. The spectral half then fails to resample onto it. The branch's own comment says "Scalar-only entry: any grid broadcasts it losslessly", and the docstring says "only a scalar-only entry ... falls back" — but the `except` catches **mixed** entries too, and for those the premise is false. The comment describes the case the author had in mind, not the case the code catches.
+
+**Why it still matters**: this is the one combination an optical engineer is most likely to author — a real lens routinely has a measured coating on one face and a nominal number on the other (owner, 2026-10-04: *"they could be different. Either scalar or table or file"*). It is shipped behaviour, reachable from a hand-written config and from the GUI's per-surface CSV picker alike. The same shape bit the substrate door a day earlier and was fixed there only (Gap 142), which is the tell: the fallback grid is a trap wherever an entry mixes forms.
+
+**Suggested fix**: (a) inline-fix-now, ~1 h, category B. Prefer a grid the entry itself supplies — resolve its first spectral input and broadcast the scalars onto that — and fall back to the generic grid only when the entry has no grid at all. Where two spectral inputs disagree, let the parser raise its ordinary grid-mismatch error rather than inventing a new one.
+
 ### CU-399 — `n_refr` is a required cavity input that changes nothing
 
 **Discovered**: owner question during the Gap 142 GUI review, 2026-10-04 — *"and the custom alpha, why do we need n?"*

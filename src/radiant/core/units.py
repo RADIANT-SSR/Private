@@ -91,6 +91,16 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     ("A/m2", "A/cm2"): 1e-4,
     ("A/cm2", "A/m2"): 1e4,
     ("A/m2", "A/m2"): 1.0,
+    # Absorption coefficient (canonical 1/m — SI, and what CavityModel already
+    # consumes). The registry carried no reciprocal-length dimension at all before
+    # Gap 142. Every published alpha for an optical substrate is quoted in cm^-1,
+    # so accepting it is the same datasheet-unit argument as A/cm2 above, with the
+    # same silent-factor-of-100 trap if an analyst converts by hand. Token spelling
+    # is ASCII per Rule 30; the GUI renders it as cm^-1.
+    ("1/m", "1/m"): 1.0,
+    ("1/cm", "1/m"): 100.0,
+    ("1/m", "1/cm"): 0.01,
+    ("1/cm", "1/cm"): 1.0,
 }
 
 # (from_unit, to_unit) -> (scale, offset) for AFFINE conversions: to = from*scale + offset.

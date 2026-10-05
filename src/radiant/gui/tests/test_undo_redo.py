@@ -17,6 +17,7 @@ from radiant.api.config_set import ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.settings_store import SettingsStore
+from radiant.gui.widgets.optical_element_editor import _COL_VALUE
 from radiant.gui.widgets.target_shape_panel import NOMINAL_SHAPE_DIMENSIONS
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
@@ -173,7 +174,7 @@ class TestCU357ElementTrainUndo:
         editor = self._editor(window)
         assert window._undo_stack.count() == 0
 
-        editor.table.item(0, 3).setText("0.50")  # M1's reflectance, commit-on-edit
+        editor.table.item(0, _COL_VALUE).setText("0.50")  # M1's reflectance, commit-on-edit
         document = window.sensor.optical_elements()
         assert document is not None
         assert document[0]["reflectance"] == 0.50
@@ -186,12 +187,12 @@ class TestCU357ElementTrainUndo:
         assert document is not None
         assert document[0]["reflectance"] == 0.97
         # The table re-read the restored document (view matches the sensor).
-        assert editor.table.item(0, 3).text() == "0.97"
+        assert editor.table.item(0, _COL_VALUE).text() == "0.97"
 
     def test_redo_reapplies_the_element_edit(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = self._window_with_train(qtbot, tmp_path)
         editor = self._editor(window)
-        editor.table.item(0, 3).setText("0.50")
+        editor.table.item(0, _COL_VALUE).setText("0.50")
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.action("edit.undo").trigger()
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):

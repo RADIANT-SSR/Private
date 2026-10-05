@@ -22,6 +22,7 @@ import yaml
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.spectral import SpectralData
+from radiant.data.substrate import SubstrateError, SubstrateLibrary
 from radiant.optics.element import ElementKind, OpticalElement
 from radiant.optics.element_factories import (
     make_reflective_element,
@@ -206,6 +207,34 @@ def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
 _REFLECTIVE_FOREIGN_KEYS: tuple[str, ...] = ("transmittance", "alpha", "n_refr", "thickness_m")
 
 
+#: The keys that make a REFRACTIVE entry a *cavity* entry rather than a simple one.
+#: Named here because two places must agree on it: the parser, which branches on it, and
+#: the inert-substrate check below, which refuses a substrate the other branch would
+#: ignore. They disagreed when the substrate door landed (Gap 142) — the door was built
+#: in the cavity branch only, so a substrate named on a simple refractive row was
+#: accepted, round-tripped into saved YAML, and left emissivity at 0.0: the one quantity
+#: the analyst chose the material to obtain. Same failure mode as CU-365.
+_CAVITY_SURFACE_KEYS: tuple[str, ...] = ("R1", "T1", "R2", "T2")
+
+
+def _is_cavity_entry(entry: dict[str, Any]) -> bool:
+    """True when a REFRACTIVE entry carries surface coatings, so the cavity model runs."""
+    return any(key in entry for key in _CAVITY_SURFACE_KEYS)
+
+
+def entry_supports_substrate(entry: dict[str, Any]) -> bool:
+    """True when a named ``substrate:`` on *entry* would reach the computed answer.
+
+    The public form of the rule :func:`_reject_overspecified_keys` enforces, so a
+    caller that wants to *offer* the choice (the GUI's substrate picker) and the parser
+    that *validates* it cannot drift apart. A substrate acts only through the cavity
+    emission model, which runs for a REFRACTIVE entry carrying surface coatings.
+    """
+    return str(entry.get("transfer_mode", "")).strip().upper() == "REFRACTIVE" and _is_cavity_entry(
+        entry
+    )
+
+
 def _reject_overspecified_keys(
     entry: dict[str, Any], element_name: str, transfer_mode: str
 ) -> None:
@@ -233,6 +262,70 @@ def _reject_overspecified_keys(
             "'reflectance'; 'transmittance', 'alpha', 'n_refr' and 'thickness_m' belong to "
             "a REFRACTIVE element. Remove the stray key or change transfer_mode."
         )
+    if "substrate" in entry and not _is_cavity_entry(entry):
+        raise ElementConfigError(
+            f"Element '{element_name}': 'substrate' = {entry['substrate']!r} has nothing "
+            "to act on here and would be silently ignored. A substrate supplies the bulk "
+            "absorption coefficient α and the refractive index n, and those enter the "
+            "answer only through the cavity emission model — which also needs the lens "
+            "thickness and its surface coatings, neither of which a material can supply. "
+            + (
+                "A REFLECTIVE element has no bulk to absorb in: light does not pass "
+                "through it, so its emissivity is fixed at 1 − R. Remove 'substrate', "
+                "or change transfer_mode to REFRACTIVE and "
+                "give the cavity fields below."
+                if transfer_mode == "REFLECTIVE"
+                else "This is a simple refractive element, defined by a single "
+                "'transmittance', and that model takes the remaining 1 − T to be "
+                "reflection rather than absorption — its emissivity is zero by "
+                "construction, so there is no absorption term for a substrate to "
+                "supply. Add 'thickness_m' and at least one surface coating value "
+                "(R1/T1/R2/T2) to make it a cavity element, which models the bulk "
+                "absorption the substrate describes — or remove 'substrate'."
+            )
+        )
+
+
+def _substrate_optical_constants(
+    substrate_name: str, element_name: str, wavelength_um: np.ndarray | None
+) -> tuple[SpectralData, SpectralData]:
+    """Resolve a named substrate to ``(alpha, n_refr)`` on the chain grid (Gap 142).
+
+    Resolution happens here, pre-chain, so the optics stage sees an ordinary cavity
+    element and Rule 6 is untouched — the stage never learns that a library exists.
+    """
+    try:
+        material = SubstrateLibrary().material(substrate_name)
+        if wavelength_um is None:
+            # Native-grid parse (the structural-validation path, which has no chain
+            # grid yet): a substrate IS a spectral property, so it keeps its own stored
+            # extent, exactly as a spectral file does. Resampling onto the generic
+            # fallback grid would be wrong here — that grid runs to 20 µm, past the
+            # window of every material in the library, so it would turn a structurally
+            # valid entry into a spurious out-of-window refusal. The real window check
+            # happens at evaluation, against the grid that will actually be used.
+            grid = material.wavelength_um
+            n_values, alpha_values = material.n_refr, material.alpha_per_m
+        else:
+            grid = wavelength_um
+            n_values, alpha_values = material.resample(wavelength_um)
+    except SubstrateError as exc:
+        raise ElementConfigError(f"optical element '{element_name}': {exc}") from exc
+    alpha = SpectralData(
+        name=f"{element_name}.alpha",
+        wavelength_um=grid.copy(),
+        values=alpha_values,
+        unit="1/m",
+        source=f"substrate library: {material.name} (tier {material.tier})",
+    )
+    n_refr = SpectralData(
+        name=f"{element_name}.n_refr",
+        wavelength_um=grid.copy(),
+        values=n_values,
+        unit="",
+        source=f"substrate library: {material.name} (tier {material.tier})",
+    )
+    return alpha, n_refr
 
 
 def _require(entry: dict[str, Any], key: str, element_name: str) -> Any:
@@ -274,7 +367,7 @@ def _parse_element(
 
     if transfer_mode == "REFRACTIVE":
         # Check whether this is a simple or cavity element.
-        if any(key in entry for key in ("R1", "T1", "R2", "T2")):
+        if _is_cavity_entry(entry):
             # Cavity element. Surfaces are lossless (Gap 127 Rule 4): per
             # surface, give R or T and the factory derives the complement;
             # giving both requires R + T = 1 (validated by CavityModel).
@@ -287,16 +380,49 @@ def _parse_element(
             t1 = _surface_value("T1")
             r2 = _surface_value("R2")
             t2 = _surface_value("T2")
-            alpha = _resolve_spectral_or_scalar(
-                _require(entry, "alpha", name),
-                f"{name}.alpha",
-                config_dir,
-            )
-            n_refr = _resolve_spectral_or_scalar(
-                _require(entry, "n_refr", name),
-                f"{name}.n_refr",
-                config_dir,
-            )
+            # Two doors onto the same two quantities (Gap 142, plan §7.5):
+            #   substrate: germanium        -> alpha(lambda), n(lambda) from the library
+            #   alpha: ... / n_refr: ...    -> stated explicitly (the custom-material path)
+            # The named door is a CONVENIENCE OVER the explicit one, never a
+            # replacement: an analyst with their own measured alpha must still be able
+            # to state it. Giving both over-specifies the element and is refused here,
+            # at the single validation authority, exactly as a mirror carrying both a
+            # reflectance and an emissivity is (Rule 5).
+            substrate_name = entry.get("substrate")
+            explicit_optical = [k for k in ("alpha", "n_refr") if k in entry]
+            if substrate_name is not None and explicit_optical:
+                raise ElementConfigError(
+                    f"optical element '{name}' names substrate "
+                    f"'{substrate_name}' and also sets "
+                    f"{' and '.join(repr(k) for k in explicit_optical)}. A substrate "
+                    "supplies exactly those quantities, so giving both over-specifies "
+                    "the element and there is no rule for which should win. Keep the "
+                    "substrate for a library material, or drop it and state alpha and "
+                    "n_refr yourself for a custom one. thickness_m stays either way — "
+                    "it belongs to the lens, not to the material."
+                )
+            if substrate_name is not None:
+                alpha, n_refr = _substrate_optical_constants(
+                    str(substrate_name), name, wavelength_um
+                )
+                if wavelength_um is None:
+                    # The substrate supplied the only real grid in this entry, so the
+                    # rest of it (scalar coatings) broadcasts onto that rather than
+                    # onto the generic fallback — which spans 0.4-20 µm, wider than
+                    # any material's window, and would turn a structurally valid entry
+                    # into a spurious out-of-window refusal.
+                    wavelength_um = alpha.wavelength_um
+            else:
+                alpha = _resolve_spectral_or_scalar(
+                    _require(entry, "alpha", name),
+                    f"{name}.alpha",
+                    config_dir,
+                )
+                n_refr = _resolve_spectral_or_scalar(
+                    _require(entry, "n_refr", name),
+                    f"{name}.n_refr",
+                    config_dir,
+                )
             thickness_m = float(_require(entry, "thickness_m", name))
 
             kind_str = entry.get("kind", "LENS").upper()

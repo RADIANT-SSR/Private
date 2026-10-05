@@ -47,6 +47,27 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-398 — The cavity model sums an infinite etalon series, which assumes a plane-parallel plate; a lens is not one
+
+**Discovered**: owner ruling during the Gap 142 GUI design review, 2026-10-04.
+**Status**: **Open** — owner-ruled on discovery: *"you can't assume that these are plane parallel plates. It should only be once per surface. Double bounces should not happen in this model."*
+**File**: `src/radiant/optics/cavity_model.py` (`denom`, `R_sys`, `eps_eff`).
+
+**Symptom**: `denom = 1 - R1*R2*beer^2` is the Airy/etalon resonance denominator — the closed form of an infinite sum of internal round trips between the two faces. That series is only physical for a **plane-parallel plate**. A lens is curved and usually wedged, so an internally reflected beam is not re-imaged onto itself; it becomes a ghost that leaves the element. Every refractive cavity element in RADIANT is therefore modelled as an etalon whether or not it is one.
+
+**Why it still matters**: results-affecting. Shipped `eps_eff` over the once-per-surface form is **exactly `1/denom`** (verified to 2.2e-16 over 200 000 random triples). That is 1.0001 for AR-coated surfaces (R = 0.01) — negligible — but **1.148 for uncoated germanium** (R = 0.362 per face, 8 mm, 4 µm), and up to 1.318 over the sampled coating range. Emissivity feeds warm-optics self-emission, so this inflates the thermal background of any poorly-coated refractive train.
+
+**Suggested fix**: (a) inline-fix-now, category C. The once-per-surface forms, each verified energy-conserving to 2.2e-16 with eps bounded in [0, 1]:
+
+```
+T_sys    = T1 * beer * T2
+R_side1  = R1 + T1 * R2 * beer^2
+R_side2  = R2 + T2 * R1 * beer^2
+eps_eff  = T2 * (1 - beer) * (1 + R1 * beer)      # = the shipped numerator, denom dropped
+```
+
+Note `R_side1` loses a factor `T1` relative to the shipped `R1 + T1^2*R2*beer^2/denom`: with no second bounce the ghost exits S1 in full rather than leaving an `R1` share behind to keep bouncing. That is precisely what makes the energy identity close exactly. Touches the 9 CU-396 Level-0 tests that pin the etalon forms, `docs/theory/radiometric_model_mixed_train.md`, and CHANGELOG (Results-affecting). **Open design question for the owner**: whether a genuine plane-parallel window should be able to opt back in to the etalon treatment, or whether once-per-surface is unconditional.
+
 ### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError
 
 **Discovered**: Gap 142 substrate-library work, 2026-10-04, while verifying that each cavity surface accepts a coating from a file (owner requirement, same day).

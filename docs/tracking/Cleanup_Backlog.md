@@ -47,6 +47,26 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-399 — `n_refr` is a required cavity input that changes nothing
+
+**Discovered**: owner question during the Gap 142 GUI review, 2026-10-04 — *"and the custom alpha, why do we need n?"*
+**Status**: **Open — owner-gated.** Needs a ruling between the three dispositions below.
+**File**: `src/radiant/optics/cavity_model.py` (`n_refr` field + the `n >= 1` validation); `src/radiant/optics/element_factories.py` (`make_refractive_cavity_element`); `src/radiant/io/element_config.py` (the `n_refr` element key, required on the explicit-alpha path).
+
+**Symptom**: `n_refr` is stored, validated, and consumed by **no formula**. Measured through the shipped `CavityModel` at R1 = 0.03, R2 = 0.05, alpha = 50 1/m, d = 8 mm: n = 1.0, 1.5, 4.0 and 10.0 all give `T_sys = 0.61769992`, `R_sys = 0.05179245`, `eps = 0.31949420` — identical to the last digit. Every cavity quantity is built from the surface coatings and `beer`; none reads the index.
+
+**How it got here**: `eps_eff` carried an `n^2` factor until [[CU-396]] removed it (2026-10-04), and that was the index's only consumer. CU-396's own note says "n enters T_sys/R_sys through the coatings, not eps" — but it does not enter those either, because they take R1/T1/R2/T2 as *inputs*. The parameter became inert that day and nothing noticed, because no test asserts that a required input does something.
+
+**Why it still matters**: an analyst on the custom-material path must supply a number that has no effect, and may reasonably believe tuning it changes the answer. That is a worse failure than an unused field — it is a **false control**. It is also the one input the substrate library cannot excuse: the library supplies n for free on the named path, so the cost falls entirely on the custom path, which exists for the analyst with their own measured data.
+
+**Three dispositions, owner's call:**
+
+1. **Give it a job (recommended).** Derive an *unspecified* surface's Fresnel reflectance from it: `R = ((n-1)/(n+1))^2`. Today `make_refractive_cavity_element` refuses a surface with neither R nor T, so an uncoated lens cannot be expressed at all — the analyst must compute Fresnel by hand and type the result. With this, `substrate: germanium` + `thickness_m` alone would describe an uncoated germanium lens, which is exactly what someone holding a lens drawing has. Makes n meaningful *and* adds a capability. Results-affecting only where a surface is currently un-expressible.
+2. **Make it optional, carried as provenance.** Keep the field for documentation (and for a future model that needs it), stop requiring it, and state in the schema that it does not enter the first-order result.
+3. **Remove it.** Smallest surface, but forecloses (1) and discards data the substrate library already ships.
+
+**Suggested fix**: (b) stand-alone task once ruled, ~3 h, category C. Until then the GUI's *Explicit α and n* field should not present n as if it were load-bearing.
+
 ### CU-394 — A datasheet-level refractive train cannot express warm-optics emission at all
 
 **Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-380 scenario re-authoring, 2026-10-03).

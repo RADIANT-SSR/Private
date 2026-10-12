@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-402 — Two `result.plot.*` accessors draw the same frame under different titles: `spectral_source` and `spectral_at_aperture_arms`
+
+**Discovered**: Gap 143 WP-1 (figures), 2026-10-12 — confirmed from code while building the figure factory; the WP-0 baseline captures had already measured it from the rendered PNGs (critique C22: "identical curve under two titles and two y-axis names").
+**Status**: Open — owner-gated. Needs a ruling on which accessor survives; not a drive-by rename, because both are documented public surface.
+**File**: `src/radiant/api/inspect.py` — `ResultPlotNamespace.spectral_source` and `ResultPlotNamespace.spectral_at_aperture_arms`.
+**Symptom**: both read `frames["at_aperture_target"]` (+ the optional `at_aperture_background`) and plot it. On `examples/mwir_leo_minimal.yaml` the two figures are the same curve, differing only in title. The duplication is structural, not scene-dependent: the two method bodies select the same frames.
+**Why it still matters**: workflow-visible (intake test 4) — an operator moving between the Source and Atmosphere stage views sees what looks like two measurements and is really one, which is exactly the "is this a different number?" doubt a sensor model exists to remove. It is also owner-gated (test 2): `spectral_source`'s own docstring concedes it is a stand-in ("SourceStage itself publishes no radiance frame … so no at-target frame exists to plot without recomputation"), and since **Gap 91** added `spectral_source_emission` over the real `at_source_target` frame, the stand-in has a proper sibling. The honest options are (a) retire `spectral_source` with a deprecation period, pointing at `spectral_source_emission` for the pre-atmosphere view and `spectral_at_aperture_arms` for the post-atmosphere one, or (b) keep both and have `spectral_source` draw the at-source **and** at-aperture arms together, which is what the approved WP-1 comp's spectral panel actually shows and would make the Source view say something the Atmosphere view does not.
+**Suggested fix**: (b) stand-alone task once ruled; effort S (one accessor body plus its doc row and tests), category D — it changes a documented public surface and a GUI stage view, so it needs the lock-step doc update and, under (a), a deprecation warning per the "do not rename public accessors without one" rule.
+
 ### CU-401 — GUI figures stay light under the dark theme: the MTF, noise-budget and PSF/pupil panels render outside the `plot_theme` seam
 
 **Discovered**: Gap 143 WP-0 baseline captures, 2026-10-12 — every dark-theme capture of the Optics MTF tab, Detector Noise tab and PSF + Pupil tab shows a white figure inside dark chrome; reproduced with the theme switched *before* evaluation, so it is not a re-render ordering issue.

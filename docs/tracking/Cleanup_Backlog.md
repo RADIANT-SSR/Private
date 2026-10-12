@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-401 — GUI figures stay light under the dark theme: the MTF, noise-budget and PSF/pupil panels render outside the `plot_theme` seam
+
+**Discovered**: Gap 143 WP-0 baseline captures, 2026-10-12 — every dark-theme capture of the Optics MTF tab, Detector Noise tab and PSF + Pupil tab shows a white figure inside dark chrome; reproduced with the theme switched *before* evaluation, so it is not a re-render ordering issue.
+**Status**: Open — scheduled into WP-1 (figures) of `docs/plans/GUI_Visual_Finish_Plan.md`; fix lands on that package's branch under the live-review rule.
+**File**: `src/radiant/gui/widgets/stage_center.py` (`StageCenter.set_theme` → `section.set_dark`, which only reaches the generic plot sections); the dedicated panels that build their own figures from `ResultPlotNamespace` without entering `radiant.api.plot.plot_theme(dark=…)` — candidates `widgets/mtf_panel.py`, `widgets/noise_budget_panel.py`, the PSF/pupil composite (verify at fix time: `grep -L plot_theme` over the figure-producing widgets).
+**Symptom**: choose View → Dark theme, evaluate, open Optics → MTF: the chrome is dark, the figure is the light variant (white axes, light panel facecolor). Same on Detector → Noise and Optics → PSF + Pupil. The headless API renders go dark correctly under `plot_theme(dark=True)`, so the API side is sound.
+**Why it still matters**: workflow-visible (intake test 4) on every dark-theme session; CU-139's "figures follow the app theme" claim in the arch doc §4.4 is only true for the sections routed through `set_dark`. It is also exactly the kind of inconsistency the Gap 143 auditors will score against.
+**Suggested fix**: (a) inline, S — route every figure-producing widget through one seam: have `render` read the active theme (`radiant.gui.themes.active_theme().name == "dark"`) instead of a per-section flag, or make the dedicated panels enter `plot_theme(dark=…)` exactly as `stage_center` does; one GUI test per panel asserting the figure facecolor matches the dark token after a toggle. Category A.
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).

@@ -1,6 +1,21 @@
 # External Review Remediation Plan (2026-09-30)
 
-**Status:** Active — opened 2026-09-30; **six of six code items landed 2026-09-30** (branch `review/2026-09-batch`). Open: CU-380's scenario sweep, CU-384, CU-387. Not archivable until those close (Rule 24).
+**Status:** Complete — HISTORICAL. Archived 2026-10-12; all eight CUs Resolved.
+
+> **HISTORICAL — completed 2026-10-03, archived 2026-10-12.** Every CU this plan
+> governs is Resolved in `docs/tracking/Cleanup_Backlog.md`: the six code items
+> on 2026-09-30 (branch `review/2026-09-batch`), CU-380's scenario remainder on
+> 2026-10-03 (branch `cu380/scenario-reauthoring` — all four scenarios
+> re-authored, not refreshed), CU-387 on 2026-09-30, and CU-384 on 2026-10-03.
+> The two items §2 held back for an owner ruling therefore closed outright
+> rather than taking the deferral records §6 would have accepted. The five Gap
+> entries §2 put out of scope were not left behind either: **Gaps 132–135 are
+> FIXED** (2026-10-01 to 10-03), **Gap 136 is PARTIAL**, and **Gap 137** — spun
+> out of CU-381 — is the one still Open. Those remain tracked in
+> `docs/tracking/gaps.md`, which is their registry; this plan never governed
+> them. Kept for §4's 1/f transfer-function design and §7's record of where the
+> plan's own assumptions were wrong.
+
 **Charter:** owner direction 2026-09-30: "log all the gaps/CUs, formulate a plan
 and then kick off the fix … I want these fixes done tonight so I can redeploy
 tomorrow and test."

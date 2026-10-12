@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Generator for the PROPOSED substrate material library (Rule 26 generator-of-record).
+"""Generator for the substrate material library (Rule 26 generator-of-record).
 
-Status: proposed content for `docs/plans/Refractive_Substrate_Emission_Plan.md`.
-NOT wired into `radiant.data`. Nothing imports this; it is run by hand.
+Status: shipped. The six ratified materials live at
+`src/radiant/data/tables/substrates/` and are read by `radiant.data.substrate`;
+the study that selected them is `docs/archive/Refractive_Substrate_Emission_Plan.md`.
+Nothing imports this script; it is run by hand to regenerate the tables from the
+retrieved sources in `sources/`. Its own `tables/` output holds all eight
+candidates, including the two the study declined (sapphire, fused silica).
 
 What it does
 ------------
@@ -16,7 +20,7 @@ What it does
 3. Writes one CSV per material on a shared grid, and prints a provenance table.
 
 Run from the repo root:
-    python docs/plans/substrate_data_proposed/build_substrate_tables.py
+    python docs/validation/substrate_data/build_substrate_tables.py
 """
 
 from __future__ import annotations

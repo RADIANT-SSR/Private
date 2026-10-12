@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grading harness for the PROPOSED substrate library (study section 8).
+"""Grading harness for the substrate library (study section 8).
 
 Three tiers, all run against the SHIPPED `radiant.optics.cavity_model.CavityModel`:
 
@@ -13,7 +13,7 @@ Three tiers, all run against the SHIPPED `radiant.optics.cavity_model.CavityMode
              both ways, against the published class figure for a real camera.
 
 Run from the repo root with the worktree's own library on the path:
-    PYTHONPATH=./src python docs/plans/substrate_data_proposed/grade_substrate_data.py
+    PYTHONPATH=./src python docs/validation/substrate_data/grade_substrate_data.py
 """
 
 from __future__ import annotations

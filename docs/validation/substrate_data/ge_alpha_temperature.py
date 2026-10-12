@@ -18,7 +18,7 @@ thing RADIANT consumes.
             pair density n_i(T), and lattice-limited mobilities.
 
 Run from the repo root:
-    PYTHONPATH=./src python docs/plans/substrate_data_proposed/ge_alpha_temperature.py
+    PYTHONPATH=./src python docs/validation/substrate_data/ge_alpha_temperature.py
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 
 Each limit is a case where the answer is known independently of the
 implementation, so these are the acceptance criteria from
-``docs/plans/External_Review_Remediation_Plan.md`` §4, not a transcription of
+``docs/archive/External_Review_Remediation_Plan.md`` §4, not a transcription of
 what the code happens to produce.
 """
 

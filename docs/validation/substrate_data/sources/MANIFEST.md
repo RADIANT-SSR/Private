@@ -1,9 +1,10 @@
-# Retrieved source artefacts — substrate material library (PROPOSED)
+# Retrieved source artefacts — substrate material library
 
-**Status:** proposed content for `docs/plans/Refractive_Substrate_Emission_Plan.md`. Not
-shipped, not wired into `radiant.data`. If §7 is ratified, these move to
-`docs/validation/substrate_datasheets/` (repo-only, never in the wheel) per Rule 26(c)
-and the Gap 119 precedent.
+**Status:** live provenance for a shipped data product. §7 of the study
+(`docs/archive/Refractive_Substrate_Emission_Plan.md`) was ratified 2026-10-04 and
+delivered as Gap 142 in v0.4.0, so these artefacts made the move this file predicted —
+to `docs/validation/substrate_data/sources/` (repo-only, never in the wheel) per
+Rule 26(c) and the Gap 119 `fpa_datasheets/` precedent. Moved 2026-10-12.
 
 Every file below is the **exact byte stream retrieved**, unedited. All retrieved
 **2026-10-04** by `python urllib.request` from the URLs given. SHA-256 is of the retrieved

@@ -25,7 +25,7 @@
 - Gap 127 (the ratified emission-model rules) and its archived plan
 - `src/radiant/data/fpa.py` (`FPALibrary`) — the closest existing precedent for a bundled material/part library
 
-**Companion artefacts produced by this study** (all under `docs/plans/substrate_data_proposed/`, proposed content — nothing is wired into the package):
+**Companion artefacts produced by this study** (all under `docs/plans/substrate_data_proposed/`, proposed content — nothing is wired into the package). **Forwarding pointer, 2026-10-12:** §7 was ratified and shipped, so these moved to `docs/validation/substrate_data/` — live provenance for the shipped library, not archived with this plan. The paths below are as this study wrote them.
 
 | File | What it is |
 |---|---|

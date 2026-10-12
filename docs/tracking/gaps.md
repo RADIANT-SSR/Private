@@ -1972,6 +1972,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 143: the GUI and its figures are functionally complete but visually unfinished — default-matplotlib composition, raw identifiers on screen, no single composition grammar across stage views
+
+| | |
+|---|---|
+| **Found in** | Owner review of the running GUI, 2026-10-12 ("looks like an AI hack job; all the plots look amateur"), confirmed by offscreen captures of every stage view and every `result.plot.*` figure in both themes. Plan: `docs/plans/GUI_Visual_Finish_Plan.md` (Active; §9 ratified 2026-10-12). |
+| **Status** | OPEN — program plan ratified 2026-10-12; WP-0 (charter, capture harness, baseline critiques) in progress. |
+| **Description** | Six figure-composition defects (grid lines ruled across `imshow` images; axes filling ~45% of the frame with a legend box duplicating direct labels; square images in 16:9 frames with empty flanks; default bar charts for MTF-at-Nyquist and the noise budget; vocabulary leaks between figure and adjacent table; band-edge taper dominating spectral plots) and seven chrome defects (raw `snake_case` identifiers wherever a human reads, including `path_zenith_rad` shown as `0 deg`; oversized centred input fields; a different composition per stage view; code-comment prose as section titles; truncated welcome-card spec lines; `DESIGN.md` 155 commits stale; a blank Spatial/MTF card in one capture). The visual world itself ("The Calibrated Instrument") is sound and kept. |
+| **Impact** | Workflow-visible to every persona: the figures that leave the tool for design reviews and test reports are the amateur-looking part; the on-screen vocabulary contradicts the displayed units; a category-fluent engineer cannot trust the interface on sight. No computed number is affected. |
+| **Suggested fix** | Per the plan: seven work packages (WP-0 baseline → WP-1 figures API-wide → WP-2 display-name registry in `radiant.api` → WP-3 composition grammar → WP-4 states and first run → WP-5 macOS adaptivity + Windows deploy checklist → WP-6 extract + regenerate `DESIGN.md`), each verified by three blind aesthetic/user auditors, the Impeccable finish reviewer, the gate battery, and the owner's live review. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

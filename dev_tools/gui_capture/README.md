@@ -31,6 +31,22 @@ that is the property the blind comparison depends on. Captures live in the
 gitignored `.impeccable/captures/` tree; only downscaled contact sheets that a
 committed report references are checked in.
 
+## `pairs.py` — blind A/B pairs and contact sheets
+
+```bash
+python dev_tools/gui_capture/pairs.py pairs --before .impeccable/captures/baseline \
+    --after .impeccable/captures/wp1 --out .impeccable/audits/wp1/pairs --seed 143 \
+    mwir_leo_minimal/figures/light_mtf.png mwir_leo_minimal/figures/dark_mtf.png
+python dev_tools/gui_capture/pairs.py sheet --before ... --after ... --out sheet.png --columns 1 <paths>
+```
+
+`pairs` writes one side-by-side composite per source image with the before/after
+order randomised per pair (seeded) and labelled only A / B, plus `key.json` (the
+mapping — orchestrator only, never given to an auditor) and `manifest.txt`.
+`sheet` builds the downscaled before/after contact sheet a package's audit
+record commits under `docs/reports/gui_visual_finish_2026-10/` — this script is
+that file's generator (Rule 26).
+
 Known limits: offscreen rendering uses Qt's software rasteriser, so native
 macOS widget chrome (menus, scrollbars, focus rings) differs from an on-screen
 run — the owner's live review covers what offscreen cannot.
